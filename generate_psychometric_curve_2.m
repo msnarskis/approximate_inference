@@ -1,4 +1,4 @@
-function [psycho_curve] = generate_psychometric_curve_2(thet, eps_a, eps_vr)
+function [psycho_curve] = generate_psychometric_curve_2(thet, eps_t, eps_n, eps_vr, eps_vl)
 
 % see https://www.overleaf.com/read/cjstrytjpgqf for details
 
@@ -19,21 +19,12 @@ function [psycho_curve] = generate_psychometric_curve_2(thet, eps_a, eps_vr)
 % eps_vr - Left Visual Cue Location size(num_locations, k, smp)
 
 
-% assert((size(eps_a)==size(eps_vr)), "Auditory and Visual cues do not match in size...");
-% assert(thet(11) > 0, "must have at least one sample...");
-
-
-num_loc = size(eps_a, 2); % number of a/v locations
-k = size(eps_a, 1); % number of frames
-ext_samp = size(eps_a, 3); % number of samples
+num_loc = size(eps_t, 2); % number of a/v locations
+k = size(eps_t, 1); % number of frames
+ext_samp = size(eps_t, 3); % number of samples
 
 
 % repeat matrices of parameters
-eps_t = repmat(eps_a, [1, 1, 1]);
-eps_vr = repmat(eps_vr, [1, 1, 1]);
-eps_n = -eps_t;
-eps_vl = -eps_vr;
-
 pr_R  = thet(1);
 pr_C = thet(2);
 pr_W = thet(3);
@@ -53,7 +44,7 @@ zero = zeros(size(eps_t));
 % combined variables
 a_tn  = sig_n ./ (sig_t + sig_n);
 mu_tn = eps_t.*a_tn - eps_n.*(1-a_tn);
-mu_v  = 0.5*(eps_vr - eps_vl); % = 0...randomness here??
+mu_v  = 0.5*(eps_vr - eps_vl); 
 
 a_sa  = sig_ap ./ (sig_t.*a_tn + sig_ap);
 mu_sa = mu_tn.*a_sa;
@@ -61,7 +52,7 @@ a_sv  = (2*sig_vp) ./ (sig_v + 2*sig_vp);
 mu_sv = mu_v.*a_sv + mu_vp.*(1-a_sv);
 
 a_aw  = (sig_v.*a_sv) ./ (2*sig_t.*a_tn.*a_sa + sig_v.*a_sv);
-sig_aw = (2*sig_t.*a_tn.*a_sa) .* a_aw;
+sig_aw = (sig_t.*a_tn.*a_sa) .* a_aw;
 
 
 % calculations with R = 1
@@ -94,18 +85,22 @@ mu_anw = mu_sa.*a_aw + R*mu_sv.*(1-a_aw);
 
 nWnC = (1-pr_W).*(1-pr_C).*normcdf(zero, R*mu_sa, sqrt(sig_t.*a_tn.*a_sa))...
     .*normcdf(zero, -1*mu_sv, sqrt(0.5*sig_v.*a_sv));
+
 WnC = (pr_W).*(1-pr_C).*normcdf(zero, -1*R*mu_sa, sqrt(sig_t.*a_tn.*a_sa))...
-    .*normcdf(zero, -1*mu_sv, sqrt(.5*sig_v.*a_sv));
+    .*normcdf(zero, -1*mu_sv, sqrt(0.5*sig_v.*a_sv));
+
 nWC = (1-pr_W).*(pr_C).*normpdf(mu_sa, -1*R*mu_sv, sqrt(sig_t.*a_tn.*a_sa + .5*sig_v.*a_sv))...
     .*normcdf(zero, R*mu_aw, sqrt(sig_aw));
-WC = (pr_W).*(pr_C).*normpdf(mu_sa, R*mu_sv, sig_t.*a_tn.*a_sa + sqrt(0.5*sig_v.*a_sv))...
+
+WC = (pr_W).*(pr_C).*normpdf(mu_sa, R*mu_sv, sqrt(sig_t.*a_tn.*a_sa + .5*sig_v.*a_sv))...
     .*normcdf(zero, -1*R*mu_anw, sqrt(sig_aw));
+
 
 pX_r2 = exp(sum(log(nWnC + WnC + nWC + WC + eps), 1)) * (1-pr_R);
 
 
 % normalize, sample, and return
-pr_Xr = pX_r1 ./ (pX_r1 + pX_r2 + eps);
+pr_Xr = pX_r1 ./ (pX_r1 + pX_r2);
 
 pr_Xr(isnan(pr_Xr)) = .5;
 

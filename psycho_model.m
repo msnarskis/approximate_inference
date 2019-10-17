@@ -20,12 +20,14 @@ function [mu_a, c1, c0] = psycho_model(theta, stim)
 % stim - Parameters
 %   1, 2 - range: audio cue loc beginning and end
 %   3 - number of locations to look at
-%   4 - sig_a: variance of audio location around mean
-%   5 - k number of stimuli shown in succesion
-%   6 - probability that audio cue is at mu_a_hat vs -mu_a_hat
+%   4 - sig_t: variance of audio location around mean
+%   5 - sig_n
+%   6 - sig_v
+%   7 - k number of stimuli shown in succesion
+%   8 - probability that audio cue is at mu_a_hat vs -mu_a_hat
 %       where mu_a_hat is adjusted to p s.t. mean audio cue location
 %       is at mu_a
-%   7 - number of samples to average over
+%   9 - number of samples to average over
 %
 % eps_a  - Auditory Cue Location     size(num_locations, k)
 % eps_vr - Left Visual Cue Location size(num_locations, k)
@@ -33,15 +35,13 @@ function [mu_a, c1, c0] = psycho_model(theta, stim)
 % match - 1: matched condition (eps_v = eps_a)
 %         0: center condition  (eps_v = zeros)
 
-% generate all X_whatever independantly
+% generate all X_*i independantly
 
 mu_a = linspace(stim(1), stim(2), stim(3));
 
-eps_a = generate_stimulus(mu_a, stim(4), stim(5), stim(6), stim(7));
-eps_v1 = abs(eps_a); % variability??
-eps_v0 = zeros(size(mu_a));
+[eps_t, eps_n, eps_vr1, eps_vl1, eps_vr0, eps_vl0] = generate_stimulus(mu_a, stim(4), stim(5), stim(6), stim(7), stim(8), stim(9));
 
-c1 = generate_psychometric_curve_2(theta, eps_a, eps_v1);
-c0 = generate_psychometric_curve_2(theta, eps_a, eps_v0);
+c1 = generate_psychometric_curve_2(theta, eps_t, eps_n, eps_vr1, eps_vl1);
+c0 = generate_psychometric_curve_2(theta, eps_t, eps_n, eps_vr0, eps_vl0);
 
 end

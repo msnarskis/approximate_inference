@@ -20,13 +20,16 @@ clc;
 %         0: center condition  (eps_v = zeros)
 
 % stimulus variables
-range = [-2, 2, 11];
-stim_sig_a = 0;
+range = [-30, 30, 21];
+stim_sig_t = 1;
+stim_sig_n = 1;
+stim_sig_v = .1;
+noise = [stim_sig_t, stim_sig_n, stim_sig_v];
 k = 1;
-w = .6;
+w = 1;
 ext_samp = 10000;
 
-stim = [range, stim_sig_a, k, w, ext_samp];
+stim = [range, noise, k, w, ext_samp];
 
 dmu = (range(2) - range(1)) / range(3);
 
@@ -45,11 +48,11 @@ dmu = (range(2) - range(1)) / range(3);
 
 % theta variables
 pr_R = .5; 
-pr_C = .5;
-pr_W = w;
-sig_v = .1;
-sig_t = 1;
-sig_n = 1;
+pr_C = 1;
+pr_W = 1;
+sig_v = stim_sig_v;
+sig_t = stim_sig_t;
+sig_n = stim_sig_n;
 sig_ap = 100;
 sig_vp = 100;
 mu_vp = 0;
@@ -60,54 +63,45 @@ theta = [pr_R, pr_C, pr_W, sig_v, sig_t, sig_n, sig_ap, sig_vp, mu_vp, lapse, ns
 
 
 % generate values
-stim(5) = 1; % k
+theta(11) = 1; % nsamp
 [mu_a1, c1_1, c0_1] = psycho_model(theta, stim);
 
-stim(5) = 10; % k
-[mu_a2, c1_2, c0_2] = psycho_model(theta, stim);
+%theta(11) = 100; % nsamp
+%[mu_a2, c1_2, c0_2] = psycho_model(theta, stim);
 
-stim(5) = 3; % k
-[mu_a3, c1_3, c0_3] = psycho_model(theta, stim);
+%theat(11) = Inf; % k
+%[mu_a3, c1_3, c0_3] = psycho_model(theta, stim);
 
 stim(5) = 4; % k
-[mu_a4, c1_4, c0_4] = psycho_model(theta, stim);
+%[mu_a4, c1_4, c0_4] = psycho_model(theta, stim);
 
 stim(5) = 5; % k
-[mu_a5, c1_5, c0_5] = psycho_model(theta, stim);
+%[mu_a5, c1_5, c0_5] = psycho_model(theta, stim);
 
 
 % diff between match and central
 diff_1 = sum(abs(c1_1 - c0_1)) * dmu;
-diff_2 = sum(abs(c1_2 - c0_2)) * dmu;
-diff_3 = sum(abs(c1_3 - c0_3)) * dmu;
-diff_4 = sum(abs(c1_4 - c0_4)) * dmu;
-diff_5 = sum(abs(c1_5 - c0_5)) * dmu;
+%diff_2 = sum(abs(c1_2 - c0_2)) * dmu;
+%diff_3 = sum(abs(c1_3 - c0_3)) * dmu;
+%diff_4 = sum(abs(c1_4 - c0_4)) * dmu;
+%diff_5 = sum(abs(c1_5 - c0_5)) * dmu;
 
-% plot
+%% plot
 hold on
 %plot([1 2 3 4 5], [diff_1 diff_2 diff_3 diff_4 diff_5])
 plot(mu_a1, c1_1, 'Linewidth', 2);
 plot(mu_a1, c0_1, 'Linewidth', 2);
-plot(mu_a2, c1_2, 'Linewidth', 2);
-plot(mu_a2, c0_2, 'Linewidth', 2);
-%plot(mu_a4, c1_4, 'Linewidth', 2);
-%plot(mu_a5, c1_5, 'Linewidth', 2);
+%plot(mu_a2, c1_2, 'Linewidth', 2);
+%plot(mu_a2, c0_2, 'Linewidth', 2);
+%plot(mu_a3, c1_3, 'Linewidth', 2);
+%plot(mu_a3, c0_3, 'Linewidth', 2);
 %plot(mu_a5, c0_5, 'Linewidth', 2);
-plot(mu_a1, .5*ones(size(mu_a1)), 'k--');
+%plot(mu_a1, .5*ones(size(mu_a1)), 'k--');
 plot([0,0], [0,1], 'k--');
-legend('match smp=1', 'central smp=1', 'match smp=\infty', 'central smp=\infty', 'location', 'best')
+legend('match smp=1', 'central smp=1', 'match smp=100', 'central smp=100', 'match smp=\infty', 'central smp=\infty', 'location', 'best')
 title("P(R|X) as a function of k");
 
 %% TEST
+mu_a = linspace(stim(1), stim(2), stim(3));
 
-p = [.49, .51];
-
-y = p(2);
-
-for k = 2:100
-    temp = p(2).^k / sum(p.^k);
-    y = [y, temp];
-end
-
-plot([1:100], y)
-
+generate_stimulus(mu_a, stim(4), stim(5), stim(6), stim(7), stim(8), stim(9))
