@@ -5,7 +5,7 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
 % center: cond = 0
 % NOTE: R determined from W --> all(w==1) || all(w==-1)
 
-    trials = 10000; % number of trial
+    trials = 100; % number of trial
     
     % size(stim) = (k: frames, n: location, W: corresponds to correct R)
     k = size(stim,1);
@@ -46,13 +46,17 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
             X_tn = X_t.*a_tn - X_n.*(1-a_tn);
             sig_tn = sig_t * a_tn;
             
+            a_stn = sig_sa/(sig_tn + sig_sa);
+            X_stn = X_tn*a_stn;
+            sig_stn = sig_tn * a_stn;
+            
             a_RL = 1/2;
             X_RL = X_R.*a_RL - X_L.*(1-a_RL);
             sig_RL = sig_v * a_RL;
             
-            a_tnRL = sig_RL/(sig_tn + sig_RL);
-            X_tnRL = X_tn.*a_tnRL + X_RL.*(1-a_tnRL);
-            sig_tnRL = sig_tn * a_tnRL;
+            a_sRL = sig_sv/(sig_RL + sig_sv);
+            X_sRL = X_RL*a_sRL;
+            sig_sRL = sig_RL * a_sRL;
                         
             % calculations for R
             p_R0 = zeros(1,n);
@@ -60,23 +64,28 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
             for wi = 1:size(W,1) % marginalize over W
                 Wi = repmat(W(wi,:)',1,n);
                 
+                % W_i dependant variables
+                a_tnRL = sig_sRL/(sig_stn + sig_sRL);
+                X_tnRL = X_stn.*a_tnRL + Wi.*X_sRL.*(1-a_tnRL);
+                sig_tnRL = sig_stn * a_tnRL;
+                
                 if R(wi)
                 % P(X|R=1, W_i)
                     p_R1 = p_R1 + prod(...
-                        (1-pr_C) * normcdf(zero, -Wi.*X_tn, sig_tn)...
-                        .*normcdf(zero, -X_RL, sig_RL)...
-                        + pr_C * normpdf(X_tn, Wi.*X_RL, sig_tn + sig_RL).*...
-                        normcdf(zero, -X_tnRL, sig_tnRL)...
-                        ,1) / 2;
+                        (1-pr_C) * normcdf(zero, -Wi.*X_stn, sig_stn)...
+                        .*normcdf(zero, -X_sRL, sig_sRL)...
+                        + pr_C * normpdf(X_stn, Wi.*X_sRL, sig_stn + sig_sRL).*...
+                        normcdf(zero, -Wi.*X_tnRL, sig_tnRL)...
+                        ,1)/2;
                 
                 else
                     % P(X|R=0, W_i)
                     p_R0 = p_R0 + prod(...
-                        (1-pr_C) * normcdf(zero, -Wi.*X_tn, sig_tn)...
-                        .*normcdf(zero, -X_RL, sig_RL)...
-                        + pr_C * normpdf(X_tn, Wi.*X_RL, sig_tn + sig_RL).*...
-                        normcdf(zero, -X_tnRL, sig_tnRL)...
-                        ,1) / (2^k-2);
+                        (1-pr_C) * normcdf(zero, -Wi.*X_stn, sig_stn)...
+                        .*normcdf(zero, -X_sRL, sig_sRL)...
+                        + pr_C * normpdf(X_stn, Wi.*X_sRL, sig_stn + sig_sRL).*...
+                        normcdf(zero, -Wi.*X_tnRL, sig_tnRL)...
+                        ,1)/(2^k-2);
                 end
             end
             
@@ -101,6 +110,10 @@ end
 function [resp] = sampling(inp, nsamp)
     
     inp(isnan(inp)) = .5;
+    
+    if any(isnan(inp))
+        ["num error:", 'w',w,'t',t]
+    end
     
     % nsamples < Inf
     if nsamp~=Inf

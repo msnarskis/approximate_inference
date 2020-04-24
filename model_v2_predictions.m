@@ -1,8 +1,8 @@
 %% Model (v2) Predictions
 
 % stimulus parameters
-eps_range = [0, 2];
-k = 3;
+eps_range = [0, 3.5];
+k = 5;
 n = 10;
 
 % model parameters
@@ -13,7 +13,7 @@ sig_sa = 100;
 sig_sv = 100;
 
 pr_R = 0.5;
-pr_C = 0.5;
+pr_C = 1;
 
 nsamp = 1; % trials per W vector
 
@@ -35,6 +35,9 @@ end
 % for R = 1
 W = [W; ones(1, k); -1*ones(1, k)];
 w = size(W,1);
+
+[w_amp, indx] = sort(abs(sum(W,2)));
+W = W(indx,:);
 
 % correct answer
 corr = repmat([ones(2^k-2,1);zeros(2,1)],1,n)';
@@ -95,19 +98,23 @@ for i = w-1:w
 end
 
 %% 2D of above
-figure
-title("Match")
-imagesc(eps, 1:w, match');
-xlabel("eps")
-ylabel("W")
-colorbar;
-
-figure
-title("Center")
-imagesc(eps, 1:w, center');
-xlabel("eps")
-ylabel("W")
-colorbar;
+% figure
+% hold on
+% 
+% title("Match")
+% imagesc(eps, w_amp, match');
+% xlabel("eps")
+% ylabel("W")
+% colorbar;
+% 
+% figure
+% hold on
+% 
+% title("Center")
+% imagesc(eps, w_amp, center');
+% xlabel("eps")
+% ylabel("W")
+% colorbar;
 
 %% Match vs Center
 figure
@@ -118,17 +125,18 @@ xlabel("stimulus location (eps)");
 ylabel("prob correct");
 ylim([0 1]);
 
-for i = 1:w-2
-    plot(eps, match_corr(:,i), 'r', 'LineWidth', 4);
-    plot(eps, center_corr(:,i), 'b', 'LineWidth', 4);
-end
+% for i = 1:w-2
+%     plot(eps, match(:,i), 'r', 'LineWidth', 2);
+%     plot(eps, center(:,i), 'b', 'LineWidth', 2);
+% end
+% 
+% for i = w-1:w
+%     plot(eps, match(:,i), 'r--', 'LineWidth', 2);
+%     plot(eps, center(:,i), 'b--', 'LineWidth', 2);
+% end
 
-for i = w-1:w
-    plot(eps, match_corr(:,i), 'r--', 'LineWidth', 4);
-    plot(eps, center_corr(:,i), 'b--', 'LineWidth', 4);
-end
-
-
+plot(eps, mean(match_corr, 2), 'r', 'LineWidth', 4);
+plot(eps, mean(center_corr, 2), 'b', 'LineWidth', 4);
 
 
 
