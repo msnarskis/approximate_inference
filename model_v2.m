@@ -5,7 +5,7 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
 % center: cond = 0
 % NOTE: R determined from W --> all(w==1) || all(w==-1)
 
-    trials = 100; % number of trial
+    trials = 500; % number of trial
     
     % size(stim) = (k: frames, n: location, W: corresponds to correct R)
     k = size(stim,1);
@@ -31,15 +31,15 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
     for w = 1:size(stim,3)
         
         % init dat vars
-        R_i = ones(n,1); % P(R=1)
+        R_i = ones(n,1); % P(R=1|X)
         
         % loop over trials
         for t = 1:trials
             % noisify stimulus
-            X_t =    (stim(:,:,w)+randn(k,n)*noise_a);
-            X_n = -1*(stim(:,:,w)+randn(k,n)*noise_a);
-            X_R =    (abs(stim(:,:,w)*cond+randn(k,n)*noise_v));
-            X_L = -1*(abs(stim(:,:,w)*cond+randn(k,n)*noise_v));
+            X_t =    stim(:,:,w) + randn(k,n)*noise_a;
+            X_n = -1*stim(:,:,w) + randn(k,n)*noise_a;
+            X_R =    abs(stim(:,:,w))*cond + randn(k,n)*noise_v;
+            X_L = -1*abs(stim(:,:,w))*cond + randn(k,n)*noise_v;
 
             % calculate values of analytical variables
             a_tn = sig_n/(sig_t + sig_n);
@@ -59,8 +59,8 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
             sig_sRL = sig_RL * a_sRL;
                         
             % calculations for R
-            p_R0 = zeros(1,n);
-            p_R1 = zeros(1,n);
+            p_R0 = zeros(size(W,1),n);
+            p_R1 = zeros(size(W,1),n);
             for wi = 1:size(W,1) % marginalize over W
                 Wi = repmat(W(wi,:)',1,n);
                 
@@ -69,33 +69,66 @@ function [resp] = model_v2(stim, cond, sig_t, sig_n, sig_v, sig_sa, sig_sv, pr_R
                 X_tnRL = X_stn.*a_tnRL + Wi.*X_sRL.*(1-a_tnRL);
                 sig_tnRL = sig_stn * a_tnRL;
                 
+                % normalizing stuff
+                gamn = (1-pr_C)*0.5*0.5;
+                gam = (pr_C)*normpdf(0,0,sqrt(sig_sa + sig_sv))*0.5;
+                
+                Z = lognormpdf(X_tn, zero, sqrt(sig_tn + sig_sa))...
+                    + lognormpdf(X_RL, zero, sqrt(sig_RL + sig_sv))...
+                    + lognormpdf(X_t, -X_n, sqrt(sig_t + sig_n))...
+                    + lognormpdf(X_R, -X_L, sqrt(sig_v + sig_v));
+                
+                tnC =  log(normcdf(zero, -Wi.*X_stn, sqrt(sig_stn)))...
+                    + log(normcdf(zero, -X_sRL, sqrt(sig_sRL)))...
+                    + Z + log(1-pr_C) - log(gam + gamn);
+                
+                tC = log(normcdf(zero, -X_tnRL, sqrt(sig_tnRL)))...
+                    + lognormpdf(X_stn, Wi.*X_sRL, sqrt(sig_stn + sig_sRL))...
+                    + Z + log(pr_C) - log(gam + gamn);
+                
+                tmp(:,:,1)=tnC;
+                tmp(:,:,2)=tC;
+                    
                 if R(wi)
-                % P(X|R=1, W_i)
-                    p_R1 = p_R1 + prod(...
-                        (1-pr_C) * normcdf(zero, -Wi.*X_stn, sig_stn)...
-                        .*normcdf(zero, -X_sRL, sig_sRL)...
-                        + pr_C * normpdf(X_stn, Wi.*X_sRL, sig_stn + sig_sRL).*...
-                        normcdf(zero, -Wi.*X_tnRL, sig_tnRL)...
-                        ,1)/2;
+                    % P(X|R=1, W_i)
+                    p_R1(wi,:) = sum(logsumexp(tmp,3),1)-log(2);
+
+%                     p_R1 = p_R1 + prod(...
+%                         normcdf(zero, -Wi.*X_stn, sqrt(sig_stn))...
+%                             .* normcdf(zero, -X_sRL, sqrt(sig_sRL))...
+%                             .* gamn./ den...
+%                         + normcdf(zero, -Wi.*X_tnRL, sqrt(sig_tnRL))...
+%                             .* normpdf(X_stn, Wi.*X_sRL, sqrt(sig_stn + sig_sRL))...
+%                             .* gam ./ den...
+%                         ,1)/2;
                 
                 else
-                    % P(X|R=0, W_i)
-                    p_R0 = p_R0 + prod(...
-                        (1-pr_C) * normcdf(zero, -Wi.*X_stn, sig_stn)...
-                        .*normcdf(zero, -X_sRL, sig_sRL)...
-                        + pr_C * normpdf(X_stn, Wi.*X_sRL, sig_stn + sig_sRL).*...
-                        normcdf(zero, -Wi.*X_tnRL, sig_tnRL)...
-                        ,1)/(2^k-2);
+                    % P(X|R=0, W_i)    
+                    p_R0(wi,:) = sum(logsumexp(tmp,3),1)-log(2^k-2);
+                    
+%                     p_R0 = p_R0 + prod(...
+%                         normcdf(zero, -Wi.*X_stn, sqrt(sig_stn))...
+%                             .* normcdf(zero, -X_sRL, sqrt(sig_sRL))...
+%                             .* gamn./ den...
+%                         + normcdf(zero, -Wi.*X_tnRL, sqrt(sig_tnRL))...
+%                             .* normpdf(X_stn, Wi.*X_sRL, sqrt(sig_stn + sig_sRL))...
+%                             .* gam ./ den...
+%                         ,1)/(2^k-2);
                 end
             end
             
             % consolidate data
-            p_R0 = p_R0 * (1-pr_R);
-            p_R1 = p_R1 * pr_R;
-
-            debug_p_r = p_R1 ./ (p_R0 + p_R1);
+            p_R0 = logsumexp(p_R0,1) + log(1-pr_R);
+            p_R1 = logsumexp(p_R1,1) + log(pr_R);
             
-            p_Ri = sampling(p_R1 ./ (p_R0 + p_R1), nsamp);
+            den(1,:) = p_R0;
+            den(2,:) = p_R1;
+            
+            den
+
+%             debug_p_r = p_R1 ./ (p_R0 + p_R1);
+            
+            p_Ri = sampling(exp(p_R1 - logsumexp(den,1)), nsamp);
             R_i = (R_i*(t-1) + p_Ri')./t;
 
         end % trials
@@ -108,12 +141,12 @@ end
 
 
 function [resp] = sampling(inp, nsamp)
+        
+    if any(isnan(inp)) || any(isinf(inp))
+        ["num error:", inp]
+    end
     
     inp(isnan(inp)) = .5;
-    
-    if any(isnan(inp))
-        ["num error:", 'w',w,'t',t]
-    end
     
     % nsamples < Inf
     if nsamp~=Inf
